@@ -11,16 +11,14 @@
             --bg: #ecf0f1;
         }
         
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
             color: #333;
             margin: 0;
-            padding: 10px; /* Reduced padding for more mobile screen space */
+            padding: 10px;
             display: flex;
             justify-content: center;
         }
@@ -51,9 +49,9 @@
             border-radius: 5px;
             margin-bottom: 20px;
             font-weight: bold;
+            font-size: 0.95rem;
         }
 
-        /* Button Layout */
         .controls {
             display: flex;
             gap: 15px;
@@ -62,7 +60,7 @@
         }
 
         button {
-            padding: 15px 20px; /* Larger padding for mobile touch */
+            padding: 15px 20px;
             font-size: 16px;
             border: none;
             border-radius: 8px;
@@ -70,7 +68,7 @@
             font-weight: bold;
             color: #fff;
             transition: 0.3s;
-            flex: 1; /* Makes buttons grow evenly */
+            flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -87,7 +85,6 @@
             100% { transform: scale(1); }
         }
 
-        /* Default Desktop Table Styles */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -104,75 +101,38 @@
         }
         .log-row:nth-child(even) { background-color: #f2f2f2; }
 
-        /* --- MOBILE SPECIFIC STYLES --- */
+        .sys-warning {
+            background-color: #ffefc6;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        /* Mobile Adjustments */
         @media screen and (max-width: 600px) {
-            /* Stack date and weather vertically */
-            .meta-header {
-                flex-direction: column;
-                gap: 10px;
-                text-align: center;
-            }
-
-            /* Stack buttons vertically */
-            .controls {
-                flex-direction: column;
-            }
-
-            button {
-                width: 100%;
-                font-size: 18px; /* Slightly larger text for mobile readability */
-            }
-
-            /* Force table to behave like stacked cards */
-            table, thead, tbody, th, td, tr { 
-                display: block; 
-            }
-            
-            /* Hide the table header completely */
-            thead tr { 
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
-            
-            /* Style each row as an individual card */
+            .meta-header { flex-direction: column; gap: 10px; text-align: center; }
+            .controls { flex-direction: column; }
+            button { width: 100%; font-size: 18px; }
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
             tr.log-row { 
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                margin-bottom: 15px;
-                background-color: #fff !important;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px; 
+                background-color: #fff !important; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             }
-            
-            /* Format cells to show data-labels on the left, data on the right/bottom */
             td { 
-                border: none;
-                border-bottom: 1px solid #eee; 
-                position: relative;
-                padding-left: 40%; 
-                text-align: right;
-                min-height: 45px;
+                border: none; border-bottom: 1px solid #eee; position: relative; 
+                padding-left: 40%; text-align: right; min-height: 45px;
             }
-
             td:last-child {
-                border-bottom: 0;
-                /* The notes section gets full width underneath on mobile */
-                padding-left: 12px;
-                text-align: left;
-                padding-top: 35px; 
+                border-bottom: 0; padding-left: 12px; text-align: left; padding-top: 35px; 
             }
-
-            /* Use the data-label attribute to create pseudo-headers inside the cell */
             td:before { 
-                position: absolute;
-                top: 12px;
-                left: 12px;
-                width: 35%; 
-                padding-right: 10px; 
-                white-space: nowrap;
-                text-align: left;
-                font-weight: bold;
-                color: var(--primary);
+                position: absolute; top: 12px; left: 12px; width: 35%; padding-right: 10px; 
+                white-space: nowrap; text-align: left; font-weight: bold; color: var(--primary);
                 content: attr(data-label);
             }
         }
@@ -183,9 +143,13 @@
 <div class="diary-container">
     <h1>Highway Inspector Daily Diary</h1>
     
+    <div id="https-warning" class="sys-warning">
+        ⚠️ Warning: This app requires an HTTPS connection for Safari to allow Location and Microphone access.
+    </div>
+
     <div class="meta-header">
         <div id="date-display">Date: Loading...</div>
-        <div id="weather-display">Weather: Fetching Location...</div>
+        <div id="weather-display">Weather: Locating for forecast...</div>
     </div>
 
     <div class="controls">
@@ -209,7 +173,12 @@
 </div>
 
 <script>
-    // --- 1. Setup Date & Initialize ---
+    // --- 1. Check for HTTPS (Crucial for iOS Safari) ---
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        document.getElementById('https-warning').style.display = 'block';
+    }
+
+    // --- 2. Setup Date & Initialize ---
     const dateDisplay = document.getElementById('date-display');
     const weatherDisplay = document.getElementById('weather-display');
     const statusText = document.getElementById('status-text');
@@ -221,29 +190,58 @@
     const dateString = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     dateDisplay.textContent = `Date: ${dateString}`;
 
-    // --- 2. Fetch Geolocation and Weather ---
+    // --- 3. Fetch Geolocation and Daily Weather ---
     let currentLat = "Unknown";
     let currentLng = "Unknown";
-    let weatherCondition = "Unknown";
+    let dailyWeatherCondition = "Unavailable (Location not set)";
+
+    // Safari-friendly Geolocation options
+    const geoOptions = {
+        enableHighAccuracy: true,
+        timeout: 15000,       // 15 seconds before failing (prevents hanging)
+        maximumAge: 0         // Forces browser to grab fresh data, not cached
+    };
 
     navigator.geolocation.getCurrentPosition(async (position) => {
         currentLat = position.coords.latitude.toFixed(5);
         currentLng = position.coords.longitude.toFixed(5);
         
         try {
-            const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current_weather=true`);
+            // Updated API call: fetches current weather AND the day's high/low temp
+            const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+            const response = await fetch(apiUrl);
             const data = await response.json();
-            const tempF = (data.current_weather.temperature * 9/5 + 32).toFixed(1); 
-            weatherCondition = `${tempF}°F, Wind: ${data.current_weather.windspeed} km/h`;
-            weatherDisplay.innerHTML = `🌤️ Weather: ${weatherCondition}`;
+            
+            // Convert fetched Celsius to Fahrenheit
+            const currentTempF = (data.current_weather.temperature * 9/5 + 32).toFixed(1); 
+            const highTempF = (data.daily.temperature_2m_max[0] * 9/5 + 32).toFixed(1);
+            const lowTempF = (data.daily.temperature_2m_min[0] * 9/5 + 32).toFixed(1);
+            
+            dailyWeatherCondition = `Currently ${currentTempF}°F | Today's High: ${highTempF}°F | Low: ${lowTempF}°F | Wind: ${data.current_weather.windspeed}km/h`;
+            weatherDisplay.innerHTML = `🌤️ ${dailyWeatherCondition}`;
+            
         } catch (error) {
-            weatherDisplay.textContent = `Weather: Unavailable`;
+            dailyWeatherCondition = "Weather API Fetch Failed.";
+            weatherDisplay.textContent = `Weather: ${dailyWeatherCondition}`;
         }
-    }, () => {
-        weatherDisplay.textContent = "Location access denied.";
-    });
+    }, (error) => {
+        // Advanced Error Handling for Safari
+        let errorMsg = "Access denied or unavailable.";
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                errorMsg = "Denied. Check iOS Settings > Privacy > Location > Safari.";
+                break;
+            case error.POSITION_UNAVAILABLE:
+                errorMsg = "Signal unavailable.";
+                break;
+            case error.TIMEOUT:
+                errorMsg = "Signal timed out.";
+                break;
+        }
+        weatherDisplay.textContent = `Location Error: ${errorMsg}`;
+    }, geoOptions);
 
-    // --- 3. Speech to Text Setup ---
+    // --- 4. Speech to Text Setup ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
     
@@ -265,7 +263,7 @@
         };
 
         recognition.onerror = (event) => {
-            statusText.textContent = `Error: ${event.error}`;
+            statusText.textContent = `Voice Error: ${event.error} (Ensure HTTPS is active)`;
             recordBtn.classList.remove('recording');
             recordBtn.innerHTML = "🎤 Start Voice Log";
         };
@@ -276,11 +274,12 @@
             statusText.textContent = "";
         };
     } else {
-        statusText.textContent = "Voice recognition not supported on this browser. Try Chrome/Safari.";
+        statusText.textContent = "Voice recognition not supported. iOS users try Siri Dictation on your keyboard.";
         recordBtn.disabled = true;
     }
 
     recordBtn.addEventListener('click', () => {
+        if (!recognition) return;
         if (recordBtn.classList.contains('recording')) {
             recognition.stop();
         } else {
@@ -288,7 +287,7 @@
         }
     });
 
-    // --- 4. Adding Logs to the Diary ---
+    // --- 5. Adding Logs to the Diary ---
     function getMilitaryTime() {
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
@@ -300,17 +299,14 @@
         const tr = document.createElement('tr');
         tr.className = 'log-row';
         
-        // Time Cell (Added data-label for mobile styling)
         const tdTime = document.createElement('td');
         tdTime.setAttribute('data-label', 'Time (Mil):');
         tdTime.textContent = getMilitaryTime();
         
-        // Location Cell (Added data-label for mobile styling)
         const tdLoc = document.createElement('td');
         tdLoc.setAttribute('data-label', 'Coordinates:');
         tdLoc.textContent = `${currentLat}, ${currentLng}`;
         
-        // Notes Cell (Added data-label for mobile styling)
         const tdNotes = document.createElement('td');
         tdNotes.setAttribute('data-label', 'Inspector Notes:');
         tdNotes.textContent = text;
@@ -322,13 +318,14 @@
         diaryBody.appendChild(tr);
     }
 
-    // --- 5. Format and Email the Diary ---
+    // --- 6. Format and Email the Diary ---
     emailBtn.addEventListener('click', () => {
-        const targetEmail = "supervisor@example.com"; // CHANGE THIS EMAIL
+        const targetEmail = "supervisor@example.com"; 
         const subject = encodeURIComponent(`Highway Inspector Daily Diary - ${dateString}`);
         
+        // This stamps the newly expanded daily weather into the finalized diary output
         let bodyText = `Daily Diary: ${dateString}\n`;
-        bodyText += `Weather Conditions: ${weatherCondition}\n`;
+        bodyText += `Daily Weather Profile: ${dailyWeatherCondition}\n`;
         bodyText += `-------------------------------------------------\n\n`;
 
         const rows = document.querySelectorAll('.log-row');
