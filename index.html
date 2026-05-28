@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Highway Inspector - Daily Diary</title>
     <style>
         :root {
@@ -10,29 +10,38 @@
             --secondary: #e67e22;
             --bg: #ecf0f1;
         }
+        
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
             color: #333;
             margin: 0;
-            padding: 20px;
+            padding: 10px; /* Reduced padding for more mobile screen space */
             display: flex;
             justify-content: center;
         }
+
         .diary-container {
             background-color: #fff;
             max-width: 800px;
             width: 100%;
-            padding: 30px;
+            padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
+
         h1 {
             text-align: center;
             color: var(--primary);
             border-bottom: 2px solid var(--secondary);
             padding-bottom: 10px;
+            font-size: 1.5rem;
         }
+
         .meta-header {
             display: flex;
             justify-content: space-between;
@@ -43,22 +52,31 @@
             margin-bottom: 20px;
             font-weight: bold;
         }
+
+        /* Button Layout */
         .controls {
             display: flex;
             gap: 15px;
             margin-bottom: 20px;
             justify-content: center;
         }
+
         button {
-            padding: 12px 20px;
+            padding: 15px 20px; /* Larger padding for mobile touch */
             font-size: 16px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
             color: #fff;
             transition: 0.3s;
+            flex: 1; /* Makes buttons grow evenly */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
         }
+
         #record-btn { background-color: #27ae60; }
         #record-btn.recording { background-color: #c0392b; animation: pulse 1.5s infinite; }
         #email-btn { background-color: #2980b9; }
@@ -69,6 +87,7 @@
             100% { transform: scale(1); }
         }
 
+        /* Default Desktop Table Styles */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -84,6 +103,79 @@
             color: white;
         }
         .log-row:nth-child(even) { background-color: #f2f2f2; }
+
+        /* --- MOBILE SPECIFIC STYLES --- */
+        @media screen and (max-width: 600px) {
+            /* Stack date and weather vertically */
+            .meta-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            /* Stack buttons vertically */
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+                font-size: 18px; /* Slightly larger text for mobile readability */
+            }
+
+            /* Force table to behave like stacked cards */
+            table, thead, tbody, th, td, tr { 
+                display: block; 
+            }
+            
+            /* Hide the table header completely */
+            thead tr { 
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+            
+            /* Style each row as an individual card */
+            tr.log-row { 
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                background-color: #fff !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            }
+            
+            /* Format cells to show data-labels on the left, data on the right/bottom */
+            td { 
+                border: none;
+                border-bottom: 1px solid #eee; 
+                position: relative;
+                padding-left: 40%; 
+                text-align: right;
+                min-height: 45px;
+            }
+
+            td:last-child {
+                border-bottom: 0;
+                /* The notes section gets full width underneath on mobile */
+                padding-left: 12px;
+                text-align: left;
+                padding-top: 35px; 
+            }
+
+            /* Use the data-label attribute to create pseudo-headers inside the cell */
+            td:before { 
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                width: 35%; 
+                padding-right: 10px; 
+                white-space: nowrap;
+                text-align: left;
+                font-weight: bold;
+                color: var(--primary);
+                content: attr(data-label);
+            }
+        }
     </style>
 </head>
 <body>
@@ -98,7 +190,7 @@
 
     <div class="controls">
         <button id="record-btn">🎤 Start Voice Log</button>
-        <button id="email-btn">✉️ Generate & Email Diary</button>
+        <button id="email-btn">✉️ Email Diary</button>
     </div>
 
     <p id="status-text" style="text-align: center; font-style: italic; color: #7f8c8d;"></p>
@@ -139,10 +231,9 @@
         currentLng = position.coords.longitude.toFixed(5);
         
         try {
-            // Fetching weather using free Open-Meteo API based on Inspector's coordinates
             const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current_weather=true`);
             const data = await response.json();
-            const tempF = (data.current_weather.temperature * 9/5 + 32).toFixed(1); // Convert C to F
+            const tempF = (data.current_weather.temperature * 9/5 + 32).toFixed(1); 
             weatherCondition = `${tempF}°F, Wind: ${data.current_weather.windspeed} km/h`;
             weatherDisplay.innerHTML = `🌤️ Weather: ${weatherCondition}`;
         } catch (error) {
@@ -164,7 +255,7 @@
 
         recognition.onstart = () => {
             recordBtn.classList.add('recording');
-            recordBtn.textContent = "🛑 Listening... (Speak Now)";
+            recordBtn.innerHTML = "🛑 Listening... (Tap to stop)";
             statusText.textContent = "Recording your log...";
         };
 
@@ -174,16 +265,18 @@
         };
 
         recognition.onerror = (event) => {
-            statusText.textContent = `Error occurred in recognition: ${event.error}`;
+            statusText.textContent = `Error: ${event.error}`;
+            recordBtn.classList.remove('recording');
+            recordBtn.innerHTML = "🎤 Start Voice Log";
         };
 
         recognition.onend = () => {
             recordBtn.classList.remove('recording');
-            recordBtn.textContent = "🎤 Start Voice Log";
+            recordBtn.innerHTML = "🎤 Start Voice Log";
             statusText.textContent = "";
         };
     } else {
-        statusText.textContent = "Speech Recognition is not supported in this browser. Please use Google Chrome.";
+        statusText.textContent = "Voice recognition not supported on this browser. Try Chrome/Safari.";
         recordBtn.disabled = true;
     }
 
@@ -207,16 +300,19 @@
         const tr = document.createElement('tr');
         tr.className = 'log-row';
         
-        // Time Cell
+        // Time Cell (Added data-label for mobile styling)
         const tdTime = document.createElement('td');
+        tdTime.setAttribute('data-label', 'Time (Mil):');
         tdTime.textContent = getMilitaryTime();
         
-        // Location Cell
+        // Location Cell (Added data-label for mobile styling)
         const tdLoc = document.createElement('td');
+        tdLoc.setAttribute('data-label', 'Coordinates:');
         tdLoc.textContent = `${currentLat}, ${currentLng}`;
         
-        // Notes Cell
+        // Notes Cell (Added data-label for mobile styling)
         const tdNotes = document.createElement('td');
+        tdNotes.setAttribute('data-label', 'Inspector Notes:');
         tdNotes.textContent = text;
 
         tr.appendChild(tdTime);
@@ -249,7 +345,7 @@
         });
 
         const mailtoLink = `mailto:${targetEmail}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
-        window.location.href = mailtoLink; // Opens the user's default email client
+        window.location.href = mailtoLink;
     });
 
 </script>
