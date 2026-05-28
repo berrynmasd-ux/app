@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highway Inspector - Daily Diary</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #e67e22;
+            --bg: #ecf0f1;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .diary-container {
+            background-color: #fff;
+            max-width: 800px;
+            width: 100%;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            border-bottom: 2px solid var(--secondary);
+            padding-bottom: 10px;
+        }
+        .meta-header {
+            display: flex;
+            justify-content: space-between;
+            background: #f9f9f9;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #fff;
+            transition: 0.3s;
+        }
+        #record-btn { background-color: #27ae60; }
+        #record-btn.recording { background-color: #c0392b; animation: pulse 1.5s infinite; }
+        #email-btn { background-color: #2980b9; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #bdc3c7;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: var(--primary);
+            color: white;
+        }
+        .log-row:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+<div class="diary-container">
+    <h1>Highway Inspector Daily Diary</h1>
+    
+    <div class="meta-header">
+        <div id="date-display">Date: Loading...</div>
+        <div id="weather-display">Weather: Fetching Location...</div>
+    </div>
+
+    <div class="controls">
+        <button id="record-btn">🎤 Start Voice Log</button>
+        <button id="email-btn">✉️ Generate & Email Diary</button>
+    </div>
+
+    <p id="status-text" style="text-align: center; font-style: italic; color: #7f8c8d;"></p>
+
+    <table id="diary-table">
+        <thead>
+            <tr>
+                <th style="width: 15%;">Time (Mil)</th>
+                <th style="width: 25%;">Location (X, Y)</th>
+                <th style="width: 60%;">Inspector Notes</th>
+            </tr>
+        </thead>
+        <tbody id="diary-body">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    // --- 1. Setup Date & Initialize ---
+    const dateDisplay = document.getElementById('date-display');
+    const weatherDisplay = document.getElementById('weather-display');
+    const statusText = document.getElementById('status-text');
+    const diaryBody = document.getElementById('diary-body');
+    const recordBtn = document.getElementById('record-btn');
+    const emailBtn = document.getElementById('email-btn');
+
+    const today = new Date();
+    const dateString = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    dateDisplay.textContent = `Date: ${dateString}`;
+
+    // --- 2. Fetch Geolocation and Weather ---
+    let currentLat = "Unknown";
+    let currentLng = "Unknown";
+    let weatherCondition = "Unknown";
+
+    navigator.geolocation.getCurrentPosition(async (position) => {
+        currentLat = position.coords.latitude.toFixed(5);
+        currentLng = position.coords.longitude.toFixed(5);
+        
+        try {
+            // Fetching weather using free Open-Meteo API based on Inspector's coordinates
+            const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current_weather=true`);
+            const data = await response.json();
+            const tempF = (data.current_weather.temperature * 9/5 + 32).toFixed(1); // Convert C to F
+            weatherCondition = `${tempF}°F, Wind: ${data.current_weather.windspeed} km/h`;
+            weatherDisplay.innerHTML = `🌤️ Weather: ${weatherCondition}`;
+        } catch (error) {
+            weatherDisplay.textContent = `Weather: Unavailable`;
+        }
+    }, () => {
+        weatherDisplay.textContent = "Location access denied.";
+    });
+
+    // --- 3. Speech to Text Setup ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            recordBtn.classList.add('recording');
+            recordBtn.textContent = "🛑 Listening... (Speak Now)";
+            statusText.textContent = "Recording your log...";
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            addLogToDiary(transcript);
+        };
+
+        recognition.onerror = (event) => {
+            statusText.textContent = `Error occurred in recognition: ${event.error}`;
+        };
+
+        recognition.onend = () => {
+            recordBtn.classList.remove('recording');
+            recordBtn.textContent = "🎤 Start Voice Log";
+            statusText.textContent = "";
+        };
+    } else {
+        statusText.textContent = "Speech Recognition is not supported in this browser. Please use Google Chrome.";
+        recordBtn.disabled = true;
+    }
+
+    recordBtn.addEventListener('click', () => {
+        if (recordBtn.classList.contains('recording')) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    });
+
+    // --- 4. Adding Logs to the Diary ---
+    function getMilitaryTime() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
+
+    function addLogToDiary(text) {
+        const tr = document.createElement('tr');
+        tr.className = 'log-row';
+        
+        // Time Cell
+        const tdTime = document.createElement('td');
+        tdTime.textContent = getMilitaryTime();
+        
+        // Location Cell
+        const tdLoc = document.createElement('td');
+        tdLoc.textContent = `${currentLat}, ${currentLng}`;
+        
+        // Notes Cell
+        const tdNotes = document.createElement('td');
+        tdNotes.textContent = text;
+
+        tr.appendChild(tdTime);
+        tr.appendChild(tdLoc);
+        tr.appendChild(tdNotes);
+        
+        diaryBody.appendChild(tr);
+    }
+
+    // --- 5. Format and Email the Diary ---
+    emailBtn.addEventListener('click', () => {
+        const targetEmail = "supervisor@example.com"; // CHANGE THIS EMAIL
+        const subject = encodeURIComponent(`Highway Inspector Daily Diary - ${dateString}`);
+        
+        let bodyText = `Daily Diary: ${dateString}\n`;
+        bodyText += `Weather Conditions: ${weatherCondition}\n`;
+        bodyText += `-------------------------------------------------\n\n`;
+
+        const rows = document.querySelectorAll('.log-row');
+        if (rows.length === 0) {
+            alert("Your diary is empty. Please record a log first.");
+            return;
+        }
+
+        rows.forEach(row => {
+            const time = row.children[0].textContent;
+            const loc = row.children[1].textContent;
+            const note = row.children[2].textContent;
+            bodyText += `[${time}] Location: (${loc})\nNote: ${note}\n\n`;
+        });
+
+        const mailtoLink = `mailto:${targetEmail}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
+        window.location.href = mailtoLink; // Opens the user's default email client
+    });
+
+</script>
+</body>
+</html>
